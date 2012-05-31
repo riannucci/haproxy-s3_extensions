@@ -30,21 +30,33 @@ __END__
 # vim: syn=haproxy
 global
 
-defaults 
+defaults
 mode http
 
 frontend incoming
 default_backend Production
+
+# No operations besides HEAD, GET, DELETE, PUT
+block unless METH_GET or METH_DELETE or { method PUT }
+
+# No operations on Service/Bucket
+block if     HTTP_URL_SLASH
+
+# No multipart upload support
+block if { urlp(uploads) } or { urlp(uploadId) }
+
 <% buckets.each do |bucket|  %>
-use_backend s3-<%= bucket %> if { should_pass_through_to <%= bucket %> }
+use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } && !METH_GET || { hdr_beg(host) <%= bucket %>. } && METH_GET && { s3_already_redirected <%= bucket %> }
 <% end %>
 <% buckets.each do |bucket|  %>
 
 backend s3-<%= bucket %>
-s3_mark
+s3_mark_redirected <%= bucket %>
 server <%= bucket %> <%= bucket %>.s3.amazonaws.com
 <% end %>
 
-backend Production 
+backend Production
 s3_alter_resign_headers <%= master %> <%= master_id  %> <%= master_key %>
 server <%= master %> <%= master %>.s3.amazonaws.com
+# Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
+# the payload, which is not supported by haproxy.
