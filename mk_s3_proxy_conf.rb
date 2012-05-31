@@ -32,21 +32,26 @@ global
 
 defaults
 mode http
+contimeout    5000
+clitimeout    60000
+srvtimeout    60000
 
 frontend incoming
+bind *:8081
+
 default_backend Production
 
 # No operations besides HEAD, GET, DELETE, PUT
-block unless METH_GET or METH_DELETE or { method PUT }
+block unless METH_GET or { method DELETE } or { method PUT }
 
 # No operations on Service/Bucket
 block if     HTTP_URL_SLASH
 
 # No multipart upload support
-block if { urlp(uploads) } or { urlp(uploadId) }
+block if { url_sub ?uploads } or { url_sub uploadId= }
 
 <% buckets.each do |bucket|  %>
-use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } && !METH_GET || { hdr_beg(host) <%= bucket %>. } && METH_GET && { s3_already_redirected <%= bucket %> }
+use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } !METH_GET || { hdr_beg(host) <%= bucket %>. } METH_GET { s3_already_redirected <%= bucket %> }
 <% end %>
 <% buckets.each do |bucket|  %>
 
