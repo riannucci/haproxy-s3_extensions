@@ -58,6 +58,7 @@
 #include <proto/session.h>
 #include <proto/task.h>
 #include <proto/stick_table.h>
+#include <proto/s3_extensions.h>
 
 
 /* This is the SSLv3 CLIENT HELLO packet used in conjunction with the
@@ -2054,6 +2055,16 @@ int cfg_parse_listen(const char *file, int linenum, char **args, int kwm)
 			err_code |= ERR_ALERT | ERR_FATAL;
 			goto out;
 		}
+	}
+	else if (!strcmp(args[0], "s3_mark_redirected")) {
+		if (*(args[1]) == 0) {
+			Alert("parsing [%s:%d] : '%s' expects <bucket> argument.\n",
+			      file, linenum, args[0]);
+			err_code |= ERR_ALERT | ERR_FATAL;
+			goto out;
+		}
+
+		curproxy->s3_mark_bucket = strdup(args[1]);
 	}
 	else if (!strcmp(args[0], "retries")) {  /* connection retries */
 		if (warnifnotcap(curproxy, PR_CAP_BE, file, linenum, args[0], NULL))
@@ -4376,6 +4387,19 @@ stats_error_parsing:
 		wl->s = strdup(args[1]);
 		LIST_ADDQ(&curproxy->req_add, &wl->list);
 		warnif_misplaced_reqadd(curproxy, file, linenum, args[0]);
+	}
+	else if (!strcmp(args[0], "s3_change_bucket")) {  /* change bucket and resign request with provided id & key */
+		if (*(args[3]) == 0) {
+			Alert("parsing [%s:%d] : '%s' expects <bucket>, <key> and <id> as arguments.\n",
+			      file, linenum, args[0]);
+			err_code |= ERR_ALERT | ERR_FATAL;
+			goto out;
+		}
+
+		err_code |= s3_add_change_bucket(file, linenum, curproxy, args[1], args[2], args[3]);
+
+		if (err_code & ERR_FATAL)
+			goto out;
 	}
 	else if (!strcmp(args[0], "srvexp") || !strcmp(args[0], "rsprep")) {  /* replace response header from a regex */
 		if (*(args[2]) == 0) {

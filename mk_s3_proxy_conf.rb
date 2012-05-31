@@ -56,7 +56,7 @@ server <%= bucket %> <%= bucket %>.s3.amazonaws.com
 <% end %>
 
 backend Production
-s3_alter_resign_headers <%= master %> <%= master_id  %> <%= master_key %>
+s3_change_bucket <%= master %> <%= master_id  %> <%= master_key %>
 server <%= master %> <%= master %>.s3.amazonaws.com
 # Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
 # the payload, which is not supported by haproxy.

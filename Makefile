@@ -486,7 +486,7 @@ else
 all: haproxy
 endif
 
-OBJS = src/haproxy.o src/sessionhash.o src/base64.o src/protocols.o \
+OBJS = src/s3_extensions.o src/haproxy.o src/sessionhash.o src/base64.o src/protocols.o \
        src/uri_auth.o src/standard.o src/buffers.o src/log.o src/task.o \
        src/time.o src/fd.o src/pipe.o src/regex.o src/cfgparse.o src/server.o \
        src/checks.o src/queue.o src/client.o src/proxy.o src/stick_table.o src/proto_uxst.o \

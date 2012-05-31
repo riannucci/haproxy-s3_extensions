@@ -61,6 +61,7 @@
 #include <proto/stream_interface.h>
 #include <proto/stream_sock.h>
 #include <proto/task.h>
+#include <proto/s3_extensions.h>
 
 const char HTTP_100[] =
 	"HTTP/1.1 100 Continue\r\n\r\n";
@@ -3116,8 +3117,11 @@ int http_process_req_common(struct session *s, struct buffer *req, int an_bit, s
 	}
 
 	/* try headers filters */
-	if (px->req_exp != NULL) {
-		if (apply_filters_to_request(s, req, px) < 0)
+	if (px->req_exp != NULL || px->s3_bucket != NULL) {
+		if (px->req_exp != NULL && apply_filters_to_request(s, req, px) < 0)
+			goto return_bad_req;
+
+		if (px->s3_bucket != NULL && s3_apply_change_bucket(s, req, px) < 0)
 			goto return_bad_req;
 
 		/* has the request been denied ? */
@@ -3523,6 +3527,13 @@ int http_process_request(struct session *s, struct buffer *req, int an_bit)
 	 * whatever we want with the remaining request. Also, now we
 	 * may have separate values for ->fe, ->be.
 	 */
+
+	/*
+	 * If we need to mark this request for s3, we can do it here.
+	 */
+	if(s->be->s3_mark_bucket != NULL) {
+		s3_mark_bucket(s->be->s3_mark_bucket, http_get_path(txn));
+	}
 
 	/*
 	 * If HTTP PROXY is set we simply get remote server address
@@ -8355,6 +8366,8 @@ static struct acl_kw_list acl_kws = {{ },{
 	{ "path_dir",   acl_parse_str,   acl_fetch_path,   acl_match_dir, ACL_USE_L7REQ_VOLATILE },
 	{ "path_dom",   acl_parse_str,   acl_fetch_path,   acl_match_dom, ACL_USE_L7REQ_VOLATILE },
 	{ "path_len",   acl_parse_int,   acl_fetch_path,   acl_match_len, ACL_USE_L7REQ_VOLATILE },
+
+	{ "s3_already_redirected",     acl_parse_str,  acl_fetch_path, s3_already_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
 
 #if 0
 	{ "line",       acl_parse_str,   acl_fetch_line,   acl_match_str   },

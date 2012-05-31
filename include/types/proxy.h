@@ -318,6 +318,11 @@ struct proxy {
 		struct eb_root used_listener_id;/* list of listener IDs in use */
 		struct eb_root used_server_id;	/* list of server IDs in use */
 	} conf;					/* config information */
+
+	char *s3_bucket;
+	char *s3_id;
+	char *s3_key;
+	char *s3_mark_bucket;
 };
 
 struct switching_rule {
