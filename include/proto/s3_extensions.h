@@ -13,8 +13,9 @@ int s3_already_redirected(struct acl_test *test, struct acl_pattern *pattern);
 
 /**
  * Mark an object path as being redirected for a given bucket.
+ * Will always return ACL_PAT_PASS.
  */
-void s3_mark_bucket(const char* bucket, const char* object_path);
+int s3_mark_redirected(struct acl_test *test, struct acl_pattern *pattern);
 
 /**
  * Saves the target bucket/key/id on the current proxy, to enable 

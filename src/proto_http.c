@@ -3529,13 +3529,6 @@ int http_process_request(struct session *s, struct buffer *req, int an_bit)
 	 */
 
 	/*
-	 * If we need to mark this request for s3, we can do it here.
-	 */
-	if(s->be->s3_mark_bucket != NULL) {
-		s3_mark_bucket(s->be->s3_mark_bucket, http_get_path(txn));
-	}
-
-	/*
 	 * If HTTP PROXY is set we simply get remote server address
 	 * parsing incoming request.
 	 */
@@ -8368,6 +8361,7 @@ static struct acl_kw_list acl_kws = {{ },{
 	{ "path_len",   acl_parse_int,   acl_fetch_path,   acl_match_len, ACL_USE_L7REQ_VOLATILE },
 
 	{ "s3_already_redirected",     acl_parse_str,  acl_fetch_path, s3_already_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
+	{ "s3_mark_redirected",     acl_parse_str,  acl_fetch_path, s3_mark_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
 
 #if 0
 	{ "line",       acl_parse_str,   acl_fetch_line,   acl_match_str   },

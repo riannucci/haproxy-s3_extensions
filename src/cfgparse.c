@@ -2056,16 +2056,6 @@ int cfg_parse_listen(const char *file, int linenum, char **args, int kwm)
 			goto out;
 		}
 	}
-	else if (!strcmp(args[0], "s3_mark_redirected")) {
-		if (*(args[1]) == 0) {
-			Alert("parsing [%s:%d] : '%s' expects <bucket> argument.\n",
-			      file, linenum, args[0]);
-			err_code |= ERR_ALERT | ERR_FATAL;
-			goto out;
-		}
-
-		curproxy->s3_mark_bucket = strdup(args[1]);
-	}
 	else if (!strcmp(args[0], "retries")) {  /* connection retries */
 		if (warnifnotcap(curproxy, PR_CAP_BE, file, linenum, args[0], NULL))
 			err_code |= ERR_WARN;

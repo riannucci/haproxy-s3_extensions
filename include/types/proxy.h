@@ -322,7 +322,6 @@ struct proxy {
 	char *s3_bucket;
 	char *s3_id;
 	char *s3_key;
-	char *s3_mark_bucket;
 };
 
 struct switching_rule {

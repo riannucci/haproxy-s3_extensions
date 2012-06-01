@@ -56,7 +56,7 @@ use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } !METH_GET || { 
 <% buckets.each do |bucket|  %>
 
 backend s3-<%= bucket %>
-s3_mark_redirected <%= bucket %>
+block unless { s3_mark_redirected <%= bucket %> } # will never actually block but we need to execute ACL
 server <%= bucket %> <%= bucket %>.s3.amazonaws.com
 <% end %>
 
