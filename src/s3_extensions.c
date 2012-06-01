@@ -82,6 +82,8 @@ int s3_add_change_bucket(const char *file, int line, struct proxy *px, const cha
     px->s3_host_header_len = strlen(px->s3_host_header);
   free(new_header);
 
+  px->s3_bucket = strdup(bucket);
+
   const char *new_auth_header_fmt = "Authorization: AWS %s:%%s\r\n";
   char *new_auth_header = malloc(sizeof(char) * (strlen(id) + strlen(new_auth_header_fmt)));
     sprintf(new_auth_header, new_auth_header_fmt, id);
@@ -95,12 +97,26 @@ int s3_add_change_bucket(const char *file, int line, struct proxy *px, const cha
 }
 
 void add_CanonicalizedAmzHeaders(struct http_txn *txn, HMAC_CTX *ctx) {
+  // Collect all headers which begin with "x-amz-". Lowercase comparison.
+  // Sort (lcased) headers.
+  // For each header:
+  //   Collect all values. Sort values.
+  //   Emit:
+  //     lcase(header):<value0>[,<value1>]*"\n"
 }
 
-void add_CanonicalizedResource(struct http_txn *txn, HMAC_CTX *ctx) {
+void add_CanonicalizedResource(struct http_txn *txn, const char* bucket, HMAC_CTX *ctx) {
+  // Bucket can either be in Host, or it can be the beginning of URI (if Host is s3.amazonaws.com).
+
+  // "/" Bucket URI< up to query string. excludes bucket, if present >
+
+  // Query params sorted by param name and interleaved with &, prepend with ?.
+  // Values must be urldecoded (but haproxy has inplace url_decode. #(@$ YES!):
+  //   acl, lifecycle, location, logging, notification, partNumber, policy, requestPayment, torrent, uploadId, uploads, versionId, versioning, versions, website
+  //   response-content-type, response-content-language, response-expires, response-cache-control, response-content-disposition, response-content-encoding
 }
 
-char * make_aws_signature(const char *key, struct http_txn *txn) {
+char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px) {
   struct http_msg *msg = &txn->req;
 
   static int loaded_engines = 0;
@@ -140,8 +156,8 @@ char * make_aws_signature(const char *key, struct http_txn *txn) {
   HMAC_Update(&ctx, (unsigned const char*)"\n", 1);
 
   add_CanonicalizedAmzHeaders(txn, &ctx);
-  add_CanonicalizedResource(txn, &ctx);
-  
+  add_CanonicalizedResource(txn, px->s3_bucket, &ctx);
+
   HMAC_Final(&ctx, raw_sig, &raw_sig_len);
   HMAC_CTX_cleanup(&ctx);
 
@@ -165,7 +181,10 @@ char * make_aws_signature(const char *key, struct http_txn *txn) {
 }
 
 int s3_apply_change_bucket(struct session *s, struct buffer *req, struct proxy *px) {
-  if (!px->s3_host_header || !px->s3_auth_header || !px->s3_key) {
+  // TODO: Enable support for query string signatures?
+  // TODO: Enable support for anonymous GETs? (if no Authorization header, then pass through)
+
+  if (!px->s3_bucket || !px->s3_host_header || !px->s3_auth_header || !px->s3_key) {
     printf("In s3_apply_change_bucket but have null config fields?");
     return 0;
   }
@@ -180,6 +199,11 @@ int s3_apply_change_bucket(struct session *s, struct buffer *req, struct proxy *
   ret = http_find_header2("Host", 4, txn->req.sol, &txn->hdr_idx, &ctx);
   if(!ret) {
     printf("That's impossible! No Host???");
+    // TODO: This is actually wrongish. S3 allows you to do:
+    //  GET /bucket/object_name
+    // with
+    //  Host: s3.amazonaws.com
+    // This should be fixed
     return 0;
   } else {
     http_remove_header2(msg, req, &txn->hdr_idx, &ctx);
@@ -191,7 +215,7 @@ int s3_apply_change_bucket(struct session *s, struct buffer *req, struct proxy *
   }
 
   // Now, generate a new signature for AWS
-  char *signature = make_aws_signature(px->s3_key, txn);
+  char *signature = make_aws_signature(px->s3_key, txn, px);
 
   // Finally, replace the Authorization header.
   ctx.idx = 0;
