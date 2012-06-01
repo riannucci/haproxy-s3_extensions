@@ -97,6 +97,10 @@ struct global {
 	} tune;
 	struct listener stats_sock; /* unix socket listener for statistics */
 	struct proxy *stats_fe;     /* the frontend holding the stats settings */
+	struct {
+		const char *address;
+		int 	   port;
+	} redis;
 };
 
 extern struct global global;

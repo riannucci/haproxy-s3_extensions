@@ -686,6 +686,20 @@ int cfg_parse_global(const char *file, int linenum, char **args, int kwm)
 		}
 		global.maxpipes = atol(args[1]);
 	}
+	else if (!strcmp(args[0], "redis_config")) {
+		if (global.redis.address != NULL) {
+			Alert("parsing [%s:%d] : '%s' already specified. Continuing.\n", file, linenum, args[0]);
+			err_code |= ERR_ALERT;
+			goto out;
+		}
+		if (*(args[1]) == 0 || *(args[2]) == 0) {
+			Alert("parsing [%s:%d] : '%s' expects <ip address> and <port> as arguments.\n", file, linenum, args[0]);
+			err_code |= ERR_ALERT | ERR_FATAL;
+			goto out;
+		}
+		global.redis.address = strdup(args[1]);
+		global.redis.port    = atol(args[2]);
+	}
 	else if (!strcmp(args[0], "ulimit-n")) {
 		if (global.rlimit_nofile != 0) {
 			Alert("parsing [%s:%d] : '%s' already specified. Continuing.\n", file, linenum, args[0]);

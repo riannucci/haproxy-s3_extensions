@@ -2,6 +2,7 @@
 
 #include <proto/s3_extensions.h>
 #include <proto/proto_http.h>
+#include <types/global.h>
 #include <openssl/hmac.h>
 #include <openssl/engine.h>
 #include <hiredis/hiredis.h>
@@ -19,8 +20,13 @@ redisReply *doRedisCommand(const char *fmt, ...) {
 
 retry:
   if(!g_redis_ctxt) {
-    // TODO: Allow setting server/port
-    g_redis_ctxt = redisConnect("127.0.0.1", 6379);
+    const char *address = "127.0.0.1";
+    int port = 6379;
+    if(global.redis.address) {
+      address = global.redis.address;
+      port    = global.redis.port;
+    }
+    g_redis_ctxt = redisConnect(address, port);
   }
 
   va_start(ap,fmt);
