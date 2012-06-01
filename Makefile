@@ -121,8 +121,8 @@ DEBUG =
 
 #### Additional include and library dirs
 # Redefine this if you want to add some special PATH to include/libs
-ADDINC =
-ADDLIB =
+ADDINC = -I.
+ADDLIB = -lssl -Lhiredis -lhiredis
 
 #### Specific macro definitions
 # Use DEFINE=-Dxxx to set any tunable macro. Anything declared here will appear
