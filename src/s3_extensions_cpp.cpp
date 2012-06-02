@@ -53,3 +53,14 @@ void  HeaderSorter_add(void *obj, char * s, size_t len) { ((HeaderSorter*)obj)->
 void  HeaderSorter_update(void *obj, HMAC_CTX *ctx) { ((HeaderSorter*)obj)->update(ctx); }
 
 void  HeaderSorter_delete(void *obj) { delete ((HeaderSorter*)obj); }
+
+void CanonicalizeResource(HMAC_CTX *ctx, char *bucket, char *uri_begin, size_t uri_len) {
+  // Bucket can either be in Host, or it can be the beginning of URI (if Host is s3.amazonaws.com).
+
+  // "/" Bucket URI< up to query string. excludes bucket, if present >
+
+  // Query params sorted by param name and interleaved with &, prepend with ?.
+  // Values must be urldecoded (but haproxy has inplace url_decode. #%@! YES!):
+  //   acl, lifecycle, location, logging, notification, partNumber, policy, requestPayment, torrent, uploadId, uploads, versionId, versioning, versions, website
+  //   response-content-type, response-content-language, response-expires, response-cache-control, response-content-disposition, response-content-encoding
+}

@@ -122,29 +122,13 @@ void for_each_header(struct http_txn *txn, void *data, void (*func)(void *data, 
   }
 }
 
-void add_CanonicalizedAmzHeaders(struct http_txn *txn, HMAC_CTX *ctx) {
-  // Collect all headers which begin with "x-amz-". Lowercase comparison.
-  // Sort (lcased) headers.
-  // For each header:
-  //   Collect all values. Sort values.
-  //   Emit:
-  //     lcase(header):<value0>[,<value1>]*"\n"
-
-  void *header_sorter = HeaderSorter_new("x-amz-");
-  for_each_header(txn, header_sorter, &HeaderSorter_add);
-  HeaderSorter_update(header_sorter, ctx);
-  HeaderSorter_delete(header_sorter);
-}
-
-void add_CanonicalizedResource(struct http_txn *txn, const char* bucket, HMAC_CTX *ctx) {
-  // Bucket can either be in Host, or it can be the beginning of URI (if Host is s3.amazonaws.com).
-
-  // "/" Bucket URI< up to query string. excludes bucket, if present >
-
-  // Query params sorted by param name and interleaved with &, prepend with ?.
-  // Values must be urldecoded (but haproxy has inplace url_decode. #(@$ YES!):
-  //   acl, lifecycle, location, logging, notification, partNumber, policy, requestPayment, torrent, uploadId, uploads, versionId, versioning, versions, website
-  //   response-content-type, response-content-language, response-expires, response-cache-control, response-content-disposition, response-content-encoding
+void optionally_add_header(HMAC_CTX *ctx, struct http_txn *txn, const char* header_name) {
+  struct hdr_ctx hdr_ctx = {.idx = 0};
+  int ret = http_find_header2(header_name, strlen(header_name), txn->req.sol, &txn->hdr_idx, &hdr_ctx);
+  if(ret) {
+    HMAC_Update(ctx, (unsigned char*)hdr_ctx.line+hdr_ctx.val, hdr_ctx.vlen);
+  }
+  HMAC_Update(ctx, (unsigned const char*)"\n", 1);
 }
 
 char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px) {
@@ -165,29 +149,17 @@ char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px
   HMAC_Update(&ctx, (unsigned char*)msg->sol + msg->som, msg->sl.rq.m_l);
   HMAC_Update(&ctx, (unsigned const char*)"\n", 1);
 
-  struct hdr_ctx hdr_ctx = {.idx = 0};
-  int ret = http_find_header2("Content-MD5", 11, msg->sol, &txn->hdr_idx, &hdr_ctx);
-  if(ret) {
-    HMAC_Update(&ctx, (unsigned char*)hdr_ctx.line+hdr_ctx.val, hdr_ctx.vlen);
-  }
-  HMAC_Update(&ctx, (unsigned const char*)"\n", 1);
+  optionally_add_header(&ctx, txn, "Content-MD5");
+  optionally_add_header(&ctx, txn, "Content-Type");
+  optionally_add_header(&ctx, txn, "Date");
 
-  hdr_ctx.idx = 0;
-  ret = http_find_header2("Content-Type", 12, msg->sol, &txn->hdr_idx, &hdr_ctx);
-  if(ret) {
-    HMAC_Update(&ctx, (unsigned char*)hdr_ctx.line+hdr_ctx.val, hdr_ctx.vlen);
-  }
-  HMAC_Update(&ctx, (unsigned const char*)"\n", 1);
+  void *header_sorter = HeaderSorter_new("x-amz-");
+  for_each_header(txn, header_sorter, &HeaderSorter_add);
+  HeaderSorter_update(header_sorter, &ctx);
+  HeaderSorter_delete(header_sorter);
+  header_sorter = NULL;
 
-  hdr_ctx.idx = 0;
-  ret = http_find_header2("Date", 4, msg->sol, &txn->hdr_idx, &hdr_ctx);
-  if(ret) {
-    HMAC_Update(&ctx, (unsigned char*)hdr_ctx.line+hdr_ctx.val, hdr_ctx.vlen);
-  }
-  HMAC_Update(&ctx, (unsigned const char*)"\n", 1);
-
-  add_CanonicalizedAmzHeaders(txn, &ctx);
-  add_CanonicalizedResource(txn, px->s3_bucket, &ctx);
+  CanonicalizeResource(&ctx, px->s3_bucket, txn->req.sol+txn->req.sl.rq.u, txn->req.sl.rq.u_l);
 
   HMAC_Final(&ctx, raw_sig, &raw_sig_len);
   HMAC_CTX_cleanup(&ctx);

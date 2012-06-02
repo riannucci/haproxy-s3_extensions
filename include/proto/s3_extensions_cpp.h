@@ -8,6 +8,13 @@
 #include <set>
 #include <string>
 
+// HeaderSorter:
+//   Collect all headers which begin with "x-amz-". Lowercase comparison.
+//   Sort (lcased) headers.
+//   For each header:
+//     Collect all values. Sort values.
+//     Emit:
+//       lcase(header):<value0>[,<value1>]*"\n"
 class HeaderSorter {
   std::string m_prefix;
 
@@ -30,6 +37,8 @@ void* HeaderSorter_new(char *prefix);
 void  HeaderSorter_add(void *obj, char * s, size_t len);
 void  HeaderSorter_update(void *obj, HMAC_CTX *ctx);
 void  HeaderSorter_delete(void *obj);
+
+void CanonicalizeResource(HMAC_CTX *ctx, char *bucket, char *uri_begin, size_t uri_len);
 
 #ifdef __cplusplus
 }
