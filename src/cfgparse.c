@@ -4392,7 +4392,7 @@ stats_error_parsing:
 		LIST_ADDQ(&curproxy->req_add, &wl->list);
 		warnif_misplaced_reqadd(curproxy, file, linenum, args[0]);
 	}
-	else if (!strcmp(args[0], "s3_change_bucket")) {  /* change bucket and resign request with provided id & key */
+	else if (!strcmp(args[0], "s3_resign")) {  /* resign request with provided id & key */
 		if (*(args[3]) == 0) {
 			Alert("parsing [%s:%d] : '%s' expects <bucket>, <key> and <id> as arguments.\n",
 			      file, linenum, args[0]);
@@ -4400,7 +4400,7 @@ stats_error_parsing:
 			goto out;
 		}
 
-		err_code |= s3_add_change_bucket(file, linenum, curproxy, args[1], args[2], args[3]);
+		err_code |= s3_add_resign(file, linenum, curproxy, args[1], args[2], args[3]);
 
 		if (err_code & ERR_FATAL)
 			goto out;

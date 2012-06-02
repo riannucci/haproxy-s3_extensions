@@ -74,16 +74,9 @@ int s3_mark_redirected(struct acl_test *test, struct acl_pattern *pattern) {
   return ACL_PAT_PASS;
 }
 
-int s3_add_change_bucket(const char *file, int line, struct proxy *px, const char *bucket, const char *id, const char *key)
+int s3_add_resign(const char *file, int line, struct proxy *px, const char *bucket, const char *id, const char *key)
 {
   // TODO: Add bucket/key/id error checking
-  const char *new_header_fmt = "Host: %s.s3.amazonaws.com\r\n";
-  char *new_header = malloc(sizeof(char) * (strlen(bucket) + strlen(new_header_fmt)));
-    sprintf(new_header, new_header_fmt, bucket);
-    px->s3_host_header     = strdup(new_header);
-    px->s3_host_header_len = strlen(px->s3_host_header);
-  free(new_header);
-
   px->s3_bucket = strdup(bucket);
 
   const char *new_auth_header_fmt = "Authorization: AWS %s:%%s\r\n";
@@ -183,52 +176,30 @@ char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px
   return retval;
 }
 
-int s3_apply_change_bucket(struct session *s, struct buffer *req, struct proxy *px) {
+int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
   // TODO: Enable support for query string signatures?
-  // TODO: Enable support for anonymous GETs? (if no Authorization header, then pass through)
 
-  if (!px->s3_bucket || !px->s3_host_header || !px->s3_auth_header || !px->s3_key) {
-    printf("In s3_apply_change_bucket but have null config fields?");
+  if (!px->s3_bucket || !px->s3_auth_header || !px->s3_key) {
+    printf("In s3_resign but have null config fields?");
     return 0;
   }
 
   struct http_txn *txn = &s->txn;
   struct http_msg *msg = &txn->req;
 
-  int ret = 0;
-
-  // First nuke Host and then add the new one back.
-  struct hdr_ctx ctx = {.idx = 0};
-  ret = http_find_header2("Host", 4, txn->req.sol, &txn->hdr_idx, &ctx);
+  struct hdr_ctx authorization_header = {.idx = 0};
+  int ret = http_find_header2("Authorization", 13, txn->req.sol, &txn->hdr_idx, &authorization_header);
   if(!ret) {
-    printf("That's impossible! No Host???");
-    // TODO: This is actually wrongish. S3 allows you to do:
-    //  GET /bucket/object_name
-    // with
-    //  Host: s3.amazonaws.com
-    // This should be fixed
-    return 0;
-  } else {
-    http_remove_header2(msg, req, &txn->hdr_idx, &ctx);
-  }
-  ret = http_header_add_tail2(req, msg, &txn->hdr_idx, px->s3_host_header, px->s3_host_header_len);
-  if(ret < 0) {
-    printf("Couldn't add Host header?");
+    printf("No Authorization, so pass through unsigned.");
     return 0;
   }
 
-  // Now, generate a new signature for AWS
+  // generate a new signature for AWS
   char *signature = make_aws_signature(px->s3_key, txn, px);
 
   // Finally, replace the Authorization header.
-  ctx.idx = 0;
-  ret = http_find_header2("Authorization", 4, txn->req.sol, &txn->hdr_idx, &ctx);
-  if(!ret) {
-    printf("That's impossible! No Authorization???");
-    return 0;
-  } else {
-    http_remove_header2(msg, req, &txn->hdr_idx, &ctx);
-  }
+  // TODO: use regex for this
+  http_remove_header2(msg, req, &txn->hdr_idx, &authorization_header);
 
   char *new_auth_header = malloc(sizeof(char) * px->s3_auth_header_len);
   sprintf(new_auth_header, px->s3_auth_header, signature);

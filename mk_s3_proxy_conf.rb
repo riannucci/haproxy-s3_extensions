@@ -31,37 +31,45 @@ __END__
 global
 
 defaults
-mode http
-contimeout    5000
-clitimeout    60000
-srvtimeout    60000
+  mode http
+  contimeout    5000
+  clitimeout    60000
+  srvtimeout    60000
 
 frontend incoming
-bind *:8081
+  bind *:8081
 
-default_backend Production
+  default_backend Production
 
-# No operations besides HEAD, GET, DELETE, PUT
-block unless METH_GET or { method DELETE } or { method PUT }
+  # No operations besides HEAD, GET, DELETE, PUT
+  block unless METH_GET or { method DELETE } or { method PUT }
 
-# No operations on Service/Bucket
-block if     HTTP_URL_SLASH
+  # No operations on Service/Bucket
+  block if     HTTP_URL_SLASH
 
-# No multipart upload support
-block if { url_sub ?uploads } or { url_sub uploadId= }
+  # No multipart upload support
+  block if { url_sub ?uploads } or { url_sub uploadId= }
 
-<% buckets.each do |bucket|  %>
-use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } !METH_GET || { hdr_beg(host) <%= bucket %>. } METH_GET { s3_already_redirected <%= bucket %> }
-<% end %>
+  <% buckets.each do |bucket|  %>
+  use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } !METH_GET || { hdr_beg(host) <%= bucket %>. } METH_GET { s3_already_redirected <%= bucket %> }
+  <% end %>
 <% buckets.each do |bucket|  %>
 
 backend s3-<%= bucket %>
-block unless { s3_mark_redirected <%= bucket %> } # will never actually block but we need to execute ACL
-server <%= bucket %> <%= bucket %>.s3.amazonaws.com
+  block unless { s3_mark_redirected <%= bucket %> } # will never actually block but we need to execute ACL
+  server <%= bucket %> <%= bucket %>.s3.amazonaws.com
 <% end %>
 
 backend Production
-s3_change_bucket <%= master %> <%= master_id  %> <%= master_key %>
-server <%= master %> <%= master %>.s3.amazonaws.com
-# Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
-# the payload, which is not supported by haproxy.
+  # remove the bucket name from URI if request didn't have it in host
+  # note the beginning '.' on the ACL. This implies the presence of a bucket name.
+  reqrep   ^([^\ :]*\ /)[^/]*/	\1	if !{ hdr_end(Host) .s3.amazonaws.com }
+
+  # Replace the host with the master bucket host
+  reqirep  ^Host:\ .*$	Host:\ <%= master %>.s3.amazonaws.com
+
+  s3_resign <%= master %> <%= master_id  %> <%= master_key %>
+  server <%= master %> <%= master %>.s3.amazonaws.com
+
+  # Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
+  # the payload, which is not supported by haproxy (currently).

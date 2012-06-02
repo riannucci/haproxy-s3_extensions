@@ -320,8 +320,6 @@ struct proxy {
 	} conf;					/* config information */
 
 	char *s3_bucket;
-	char *s3_host_header;
-	int  s3_host_header_len;
 	char *s3_auth_header;
 	int  s3_auth_header_len;
 	char *s3_key;
