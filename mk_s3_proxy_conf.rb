@@ -1,4 +1,5 @@
 #!/usr/bin/ruby1.9.1
+require 'rubygems'
 require 'erubis'
 
 # Use like:
@@ -20,6 +21,8 @@ require 'erubis'
 # For goodness, you should issue a read-only key for production. This is
 # because you don't want the proxy to ever 'write' to the production bucket.
 #
+# NOTE: Since we're not resigning, the master id and master key are ignored
+#       for now.
 #
 
 buckets = STDIN.readlines.map(&:chomp)
@@ -41,14 +44,14 @@ frontend incoming
 
   default_backend Production
 
+  # Only proxy s3 stuff
+  block unless { hdr_end(Host) s3.amazonaws.com }
+
   # No operations besides HEAD, GET, DELETE, PUT
   block unless METH_GET or { method DELETE } or { method PUT }
 
   # No operations on Service/Bucket
   block if     HTTP_URL_SLASH
-
-  # No multipart upload support
-  block if { url_sub ?uploads } or { url_sub uploadId= }
 
   <% buckets.each do |bucket|  %>
   use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } !METH_GET || { hdr_beg(host) <%= bucket %>. } METH_GET { s3_already_redirected <%= bucket %> }
@@ -61,6 +64,8 @@ backend s3-<%= bucket %>
 <% end %>
 
 backend Production
+  block unless { method GET }
+
   # remove the bucket name from URI if request didn't have it in host
   # note the beginning '.' on the ACL. This implies the presence of a bucket name.
   reqrep   ^([^\ :]*\ /)[^/]*/	\1	if !{ hdr_end(Host) .s3.amazonaws.com }
@@ -68,7 +73,11 @@ backend Production
   # Replace the host with the master bucket host
   reqirep  ^Host:\ .*$	Host:\ <%= master %>.s3.amazonaws.com
 
-  s3_resign <%= master %> <%= master_id  %> <%= master_key %>
+  # For now, just remove the Authorization header. Since our app theoretically only does
+  # unauthenticated GET operations, we can just nuke the sucker and pass it along.
+  #   s3_resign <%= master %> <%= master_id  %> <%= master_key %>
+  reqidel ^Authorization:.*
+
   server <%= master %> <%= master %>.s3.amazonaws.com
 
   # Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
