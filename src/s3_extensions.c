@@ -185,7 +185,6 @@ int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
   }
 
   struct http_txn *txn = &s->txn;
-  struct http_msg *msg = &txn->req;
 
   struct hdr_ctx authorization_header = {.idx = 0};
   int ret = http_find_header2("Authorization", 13, txn->req.sol, &txn->hdr_idx, &authorization_header);
@@ -194,22 +193,21 @@ int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
     return 0;
   }
 
-  // generate a new signature for AWS
+  struct hdr_exp exp;
+  memset(&exp, sizeof(exp), 0);
+  exp.preg    = calloc(1, sizeof(regex_t));
+  exp.replace = malloc(sizeof(char) * px->s3_auth_header_len);;
+  exp.action  = ACT_REPLACE;
+  regcomp((regex_t*)exp.preg, "^Authorization:.*$", REG_EXTENDED | REG_ICASE);
+
   char *signature = make_aws_signature(px->s3_key, txn, px);
-
-  // Finally, replace the Authorization header.
-  // TODO: use regex for this
-  http_remove_header2(msg, req, &txn->hdr_idx, &authorization_header);
-
-  char *new_auth_header = malloc(sizeof(char) * px->s3_auth_header_len);
-  sprintf(new_auth_header, px->s3_auth_header, signature);
+  sprintf((char*)exp.replace, px->s3_auth_header, signature);
   free(signature);
-  ret = http_header_add_tail2(req, msg, &txn->hdr_idx, new_auth_header, strlen(new_auth_header));
-  free(new_auth_header);
-  if(ret < 0) {
-    printf("Couldn't add Authorization header?");
-    return 0;
-  }
+
+  apply_filter_to_req_headers(s, req, &exp);
+
+  free((void*)exp.preg);
+  free((void*)exp.replace);
 
   return 0;
 }
