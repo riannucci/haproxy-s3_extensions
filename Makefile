@@ -90,7 +90,7 @@ ARCH =
 #### Toolchain options.
 # GCC is normally used both for compiling and linking.
 CC = gcc
-LD = $(CC)
+LD = $(CXX)
 
 #### Debug flags (typically "-g").
 # Those flags only feed CFLAGS so it is not mandatory to use this form.
@@ -486,7 +486,7 @@ else
 all: haproxy
 endif
 
-OBJS = src/s3_extensions.o src/haproxy.o src/sessionhash.o src/base64.o src/protocols.o \
+OBJS = src/s3_extensions.o src/s3_extensions_cpp.o src/haproxy.o src/sessionhash.o src/base64.o src/protocols.o \
        src/uri_auth.o src/standard.o src/buffers.o src/log.o src/task.o \
        src/time.o src/fd.o src/pipe.o src/regex.o src/cfgparse.o src/server.o \
        src/checks.o src/queue.o src/client.o src/proxy.o src/stick_table.o src/proto_uxst.o \
@@ -512,6 +512,9 @@ $(LIB_EBTREE): $(EBTREE_OBJS)
 
 objsize: haproxy
 	@objdump -t $^|grep ' g '|grep -F '.text'|awk '{print $$5 FS $$6}'|sort
+
+%.o:	%.cpp
+	$(CXX) $(COPTS) -c -o $@ $<
 
 %.o:	%.c
 	$(CC) $(COPTS) -c -o $@ $<

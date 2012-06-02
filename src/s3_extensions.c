@@ -1,7 +1,9 @@
 // vim: sw=2 sts=2 expandtab smartindent
 
 #include <proto/s3_extensions.h>
+#include <proto/s3_extensions_cpp.h>
 #include <proto/proto_http.h>
+#include <proto/hdr_idx.h>
 #include <types/global.h>
 #include <openssl/hmac.h>
 #include <openssl/engine.h>
@@ -96,6 +98,30 @@ int s3_add_change_bucket(const char *file, int line, struct proxy *px, const cha
   return 0;
 }
 
+// Totally copied from apply_filter_to_req_headers
+void for_each_header(struct http_txn *txn, void *data, void (*func)(void *data, char *begin, size_t len)) {
+  char *cur_ptr, *cur_end, *cur_next;
+  int cur_idx = 0, last_hdr;
+  struct hdr_idx_elem *cur_hdr;
+
+  last_hdr = 0;
+
+  cur_next = txn->req.sol + hdr_idx_first_pos(&txn->hdr_idx);
+
+  while (!last_hdr) {
+    cur_idx = txn->hdr_idx.v[cur_idx].next;
+    if (!cur_idx)
+      break;
+
+    cur_hdr  = &txn->hdr_idx.v[cur_idx];
+    cur_ptr  = cur_next;
+    cur_end  = cur_ptr + cur_hdr->len;
+    cur_next = cur_end + cur_hdr->cr + 1;
+
+    (func)(data, cur_ptr, cur_end-cur_ptr);
+  }
+}
+
 void add_CanonicalizedAmzHeaders(struct http_txn *txn, HMAC_CTX *ctx) {
   // Collect all headers which begin with "x-amz-". Lowercase comparison.
   // Sort (lcased) headers.
@@ -103,6 +129,11 @@ void add_CanonicalizedAmzHeaders(struct http_txn *txn, HMAC_CTX *ctx) {
   //   Collect all values. Sort values.
   //   Emit:
   //     lcase(header):<value0>[,<value1>]*"\n"
+
+  void *header_sorter = HeaderSorter_new("x-amz-");
+  for_each_header(txn, header_sorter, &HeaderSorter_add);
+  HeaderSorter_update(header_sorter, ctx);
+  HeaderSorter_delete(header_sorter);
 }
 
 void add_CanonicalizedResource(struct http_txn *txn, const char* bucket, HMAC_CTX *ctx) {
