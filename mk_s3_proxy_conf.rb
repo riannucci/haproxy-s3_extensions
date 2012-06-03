@@ -32,15 +32,21 @@ puts Erubis::FastEruby.new(DATA.read).result(binding)
 __END__
 # vim: syn=haproxy
 global
+  log 127.0.0.1 local0
+  ulimit-n      65536
+  maxconn       16384
 
 defaults
+  log global
   mode http
+  option httplog
+  option http-server-close
   contimeout    5000
   clitimeout    60000
   srvtimeout    60000
 
 frontend incoming
-  bind *:8081
+  bind *:80
 
   default_backend Production
 
@@ -51,10 +57,17 @@ frontend incoming
   block unless METH_GET or { method DELETE } or { method PUT }
 
   # No operations on Service/Bucket
-  block if     HTTP_URL_SLASH
+  block if     { path / }
 
   <% buckets.each do |bucket|  %>
-  use_backend s3-<%= bucket %> if { hdr_beg(host) <%= bucket %>. } !METH_GET || { hdr_beg(host) <%= bucket %>. } METH_GET { s3_already_redirected <%= bucket %> }
+  acl header-<%= bucket %>  hdr(host) <%=bucket%>.s3.amazonaws.com
+  acl uri-<%= bucket %>     hdr(host) s3.amazonaws.com
+  acl uri-<%= bucket %>     path_beg   /<%=bucket%>/
+  acl redir-<%= bucket %>   s3_already_redirected <%= bucket %>
+  use_backend s3-<%= bucket %> if header-<%= bucket %> !METH_GET
+  use_backend s3-<%= bucket %> if uri-<%= bucket %>    !METH_GET
+  use_backend s3-<%= bucket %> if header-<%= bucket %> redir-<%= bucket %> 
+  use_backend s3-<%= bucket %> if uri-<%= bucket %>    redir-<%= bucket %> 
   <% end %>
 <% buckets.each do |bucket|  %>
 
@@ -68,7 +81,7 @@ backend Production
 
   # remove the bucket name from URI if request didn't have it in host
   # note the beginning '.' on the ACL. This implies the presence of a bucket name.
-  reqrep   ^([^\ :]*\ /)[^/]*/	\1	if !{ hdr_end(Host) .s3.amazonaws.com }
+  reqrep   ^([^\ :]*)\ /[^/]*/(.*)	\1\ /\2	if !{ hdr_end(Host) .s3.amazonaws.com }
 
   # Replace the host with the master bucket host
   reqirep  ^Host:\ .*$	Host:\ <%= master %>.s3.amazonaws.com
