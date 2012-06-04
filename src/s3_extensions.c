@@ -50,25 +50,32 @@ retry:
   return reply;
 }
 
-int s3_already_redirected(struct acl_test *test, struct acl_pattern *pattern) {
-  const char *bucket      = pattern->ptr.str;
-  const int  object_len   = test->len;
-  const char *object_str  = test->ptr;
+int s3_already_redirected(struct acl_test *test, struct acl_pattern * ignored) {
+  const char *bucket      = test->ptr+1;
+  const char *bucket_end  = memchr(bucket, '/', test->len-1);
+  const int  bucket_len   = bucket_end - bucket;
+  const char *object_str  = bucket_end+1;
+  const int  object_len   = test->len - bucket_len - 2;
 
-  redisReply *reply = doRedisCommand("SISMEMBER %s %b", bucket, object_str, object_len);
+  if(bucket_len <= 0 || object_len <= 0) return ACL_PAT_FAIL;
+
+  redisReply *reply = doRedisCommand("SISMEMBER %b %b", bucket, bucket_len, object_str, object_len);
   int retval = !reply || reply->integer ? ACL_PAT_PASS : ACL_PAT_FAIL;
-
   if(reply) freeReplyObject(reply);
 
   return retval;
 }
 
-int s3_mark_redirected(struct acl_test *test, struct acl_pattern *pattern) {
-  const char *bucket      = pattern->ptr.str;
-  const int  object_len   = test->len;
-  const char *object_str  = test->ptr;
+int s3_mark_redirected(struct acl_test *test, struct acl_pattern * ignored) {
+  const char *bucket      = test->ptr+1;
+  const char *bucket_end  = memchr(bucket, '/', test->len-1);
+  const int  bucket_len   = bucket_end - bucket;
+  const char *object_str  = bucket_end+1;
+  const int  object_len   = test->len - bucket_len - 2;
 
-  redisReply *reply = doRedisCommand("SADD %s %b", bucket, object_str, object_len);
+  if(bucket_len <= 0 || object_len <= 0) return ACL_PAT_FAIL;
+
+  redisReply *reply = doRedisCommand("SADD %b %b", bucket, bucket_len, object_str, object_len);
   if(reply) freeReplyObject(reply);
 
   return ACL_PAT_PASS;

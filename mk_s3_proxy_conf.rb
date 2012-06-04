@@ -3,13 +3,7 @@ require 'rubygems'
 require 'erubis'
 
 # Use like:
-#  mk_s3_proxy_conf.rb << EOF
-#  product_bucket_name production_aws_id production_key
-#  staging_bucket_name
-#  dev1_bucket_name
-#  EOF
-#
-# You may have as many staging/dev/test buckets as you like.
+#  mk_s3_proxy_conf.rb product_bucket_name production_aws_id production_key
 #
 # Queries must be issued to the proxy with a host in the form of:
 #   staging.s3.amazonaws.com
@@ -25,8 +19,8 @@ require 'erubis'
 #       for now.
 #
 
-buckets = STDIN.readlines.map(&:chomp)
-master, master_id, master_key  = buckets.shift.split
+ROOT = "s3.amazonaws.com"
+master, master_id, master_key  = ARGV
 puts Erubis::FastEruby.new(DATA.read).result(binding)
 
 __END__
@@ -48,10 +42,10 @@ defaults
 frontend incoming
   bind *:80
 
-  default_backend Production
+  default_backend s3-rewrite
 
   # Only proxy s3 stuff
-  block unless { hdr_end(Host) s3.amazonaws.com }
+  block unless { hdr_end(Host) <%= ROOT %> }
 
   # No operations besides HEAD, GET, DELETE, PUT
   block unless METH_GET or { method DELETE } or { method PUT }
@@ -59,39 +53,30 @@ frontend incoming
   # No operations on Service/Bucket
   block if     { path / }
 
-  <% buckets.each do |bucket|  %>
-  acl header-<%= bucket %>  hdr(host) <%=bucket%>.s3.amazonaws.com
-  acl uri-<%= bucket %>     hdr(host) s3.amazonaws.com
-  acl uri-<%= bucket %>     path_beg   /<%=bucket%>/
-  acl redir-<%= bucket %>   s3_already_redirected <%= bucket %>
-  use_backend s3-<%= bucket %> if header-<%= bucket %> !METH_GET
-  use_backend s3-<%= bucket %> if uri-<%= bucket %>    !METH_GET
-  use_backend s3-<%= bucket %> if header-<%= bucket %> redir-<%= bucket %> 
-  use_backend s3-<%= bucket %> if uri-<%= bucket %>    redir-<%= bucket %> 
-  <% end %>
-<% buckets.each do |bucket|  %>
+  # Canonicalize bucket into URI if it's not there already
+  acl canonicalized  hdr(Host) <%= ROOT %>
+  reqikeep  ^Host:\s+(.*).<%= ROOT %>		unless canonicalized
+  reqirep   ^([^\ :]*\ )(.*)  \1/\k1\2		unless canonicalized
+  reqirep   ^(Host:\ ).*      \1<%= ROOT %>	unless canonicalized
 
-backend s3-<%= bucket %>
-  block unless { s3_mark_redirected <%= bucket %> } # will never actually block but we need to execute ACL
-  server <%= bucket %> <%= bucket %>.s3.amazonaws.com
-<% end %>
+  use_backend s3-passthrough if !METH_GET || { s3_already_redirected junk }
 
-backend Production
+backend s3-passthrough
+  block unless { s3_mark_redirected junk } # will never actually block but we need to execute ACL
+  server pass_through <%= ROOT %>
+
+backend s3-rewrite
   block unless { method GET }
 
-  # remove the bucket name from URI if request didn't have it in host
-  # note the beginning '.' on the ACL. This implies the presence of a bucket name.
-  reqrep   ^([^\ :]*)\ /[^/]*/(.*)	\1\ /\2	if !{ hdr_end(Host) .s3.amazonaws.com }
-
-  # Replace the host with the master bucket host
-  reqirep  ^Host:\ .*$	Host:\ <%= master %>.s3.amazonaws.com
+  # set the bucket name in the URI to be the master
+  reqrep   ^([^\ :]*\ /)[^/]*(/.*)      \1<%= master %>\2
 
   # For now, just remove the Authorization header. Since our app theoretically only does
   # unauthenticated GET operations, we can just nuke the sucker and pass it along.
   #   s3_resign <%= master %> <%= master_id  %> <%= master_key %>
   reqidel ^Authorization:.*
 
-  server <%= master %> <%= master %>.s3.amazonaws.com
+  server redirected <%= ROOT %>
 
   # Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
   # the payload, which is not supported by haproxy (currently).

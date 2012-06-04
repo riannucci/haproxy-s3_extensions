@@ -8384,8 +8384,8 @@ static struct acl_kw_list acl_kws = {{ },{
 	{ "path_dom",   acl_parse_str,   acl_fetch_path,   acl_match_dom, ACL_USE_L7REQ_VOLATILE },
 	{ "path_len",   acl_parse_int,   acl_fetch_path,   acl_match_len, ACL_USE_L7REQ_VOLATILE },
 
-	{ "s3_already_redirected",     acl_parse_str,  acl_fetch_path, s3_already_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
-	{ "s3_mark_redirected",     acl_parse_str,  acl_fetch_path, s3_mark_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
+	{ "s3_already_redirected",     acl_parse_nothing,  acl_fetch_path, s3_already_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
+	{ "s3_mark_redirected",        acl_parse_nothing,  acl_fetch_path, s3_mark_redirected, ACL_USE_L7REQ_VOLATILE /*| ACL_MAY_LOOKUP */ },
 
 #if 0
 	{ "line",       acl_parse_str,   acl_fetch_line,   acl_match_str   },
