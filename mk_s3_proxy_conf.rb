@@ -66,7 +66,7 @@ backend s3-passthrough
   server pass_through <%= ROOT %>
 
 backend s3-rewrite
-  block unless { method GET }
+  block unless METH_GET
 
   # set the bucket name in the URI to be the master
   reqrep   ^([^\ :]*\ /)[^/]*(/.*)      \1<%= master %>\2
