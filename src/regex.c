@@ -22,23 +22,36 @@
 /* regex trash buffer used by various regex tests */
 regmatch_t pmatch[MAX_MATCH];  /* rm_so, rm_eo for regular expressions */
 
+char *keepbuf = NULL;
+int  keepbuflen = BUFSIZE;
+regmatch_t keeppmatch[MAX_MATCH];
 
-int exp_replace(char *dst, char *src, const char *str, const regmatch_t *matches)
+int exp_replace(char *dst, char *src, const char *str, const regmatch_t *matches, char *alt_src, const regmatch_t *alt_matches)
 {
 	char *old_dst = dst;
+	char  *match_src = NULL;
+	const regmatch_t *matcher = NULL;
 
 	while (*str) {
 		if (*str == '\\') {
 			str++;
+			if (*str == 'k') {
+				match_src = alt_src;
+				matcher   = alt_matches;
+				str++;
+			} else {
+				match_src = src;
+				matcher = matches;
+			}
 			if (isdigit((unsigned char)*str)) {
 				int len, num;
 
 				num = *str - '0';
 				str++;
 
-				if (matches[num].rm_eo > -1 && matches[num].rm_so > -1) {
-					len = matches[num].rm_eo - matches[num].rm_so;
-					memcpy(dst, src + matches[num].rm_so, len);
+				if (matcher[num].rm_eo > -1 && matcher[num].rm_so > -1) {
+					len = matcher[num].rm_eo - matcher[num].rm_so;
+					memcpy(dst, match_src + matcher[num].rm_so, len);
 					dst += len;
 				}
 		
@@ -75,6 +88,12 @@ const char *check_replace_string(const char *str)
 				return err;
 			else if (isdigit((unsigned char)*str))
 				err = NULL;
+			else if (*str == 'k') {
+				str++;
+				if(!isdigit(*str))
+					return err;
+				err = NULL;
+			}
 			else if (*str == 'x') {
 				str++;
 				if (!ishex(*str))

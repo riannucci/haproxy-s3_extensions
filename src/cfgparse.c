@@ -4318,6 +4318,34 @@ stats_error_parsing:
 		if (err_code & ERR_FATAL)
 			goto out;
 	}
+	else if (!strcmp(args[0], "reqkeep")) {  /* save captured groups in request header from a regex */
+		err_code |= create_cond_regex_rule(file, linenum, curproxy,
+						   ACL_DIR_REQ, ACT_KEEP, 0,
+						   args[0], args[1], NULL, (const char **)args+2);
+		if (err_code & ERR_FATAL)
+			goto out;
+	}
+	else if (!strcmp(args[0], "reqikeep")) { /* save captured groups in request header from a regex, ignoring case */
+		err_code |= create_cond_regex_rule(file, linenum, curproxy,
+						   ACL_DIR_REQ, ACT_KEEP, REG_ICASE,
+						   args[0], args[1], NULL, (const char **)args+2);
+		if (err_code & ERR_FATAL)
+			goto out;
+	}
+	else if (!strcmp(args[0], "rspkeep")) {  /* save captured groups in response header from a regex */
+		err_code |= create_cond_regex_rule(file, linenum, curproxy,
+						   ACL_DIR_RTR, ACT_KEEP, 0,
+						   args[0], args[1], NULL, (const char **)args+2);
+		if (err_code & ERR_FATAL)
+			goto out;
+	}
+	else if (!strcmp(args[0], "rspikeep")) { /* save captured groups in response header from a regex, ignoring case */
+		err_code |= create_cond_regex_rule(file, linenum, curproxy,
+						   ACL_DIR_RTR, ACT_KEEP, REG_ICASE,
+						   args[0], args[1], NULL, (const char **)args+2);
+		if (err_code & ERR_FATAL)
+			goto out;
+	}
 	else if (!strcmp(args[0], "reqidel")) {  /* delete request header from a regex ignoring case */
 		err_code |= create_cond_regex_rule(file, linenum, curproxy,
 						   ACL_DIR_REQ, ACT_REMOVE, REG_ICASE,

@@ -5780,8 +5780,14 @@ int apply_filter_to_req_headers(struct session *t, struct buffer *req, struct hd
 
 				break;
 
+			case ACT_KEEP:
+				memcpy(keepbuf,    cur_ptr, cur_end - cur_ptr);
+				memcpy(keeppmatch, pmatch,  sizeof(keeppmatch));
+				last_hdr = 1;
+				break;
+
 			case ACT_REPLACE:
-				len = exp_replace(trash, cur_ptr, exp->replace, pmatch);
+				len = exp_replace(trash, cur_ptr, exp->replace, pmatch, keepbuf, keeppmatch);
 				delta = buffer_replace2(req, cur_ptr, cur_end, trash, len);
 				/* FIXME: if the user adds a newline in the replacement, the
 				 * index will not be recalculated for now, and the new line
@@ -5900,9 +5906,15 @@ int apply_filter_to_req_line(struct session *t, struct buffer *req, struct hdr_e
 			done = 1;
 			break;
 
+		case ACT_KEEP:
+			memcpy(keepbuf,    cur_ptr, cur_end - cur_ptr);
+			memcpy(keeppmatch, pmatch,  sizeof(keeppmatch));
+			done = 1;
+			break;
+
 		case ACT_REPLACE:
 			*cur_end = term; /* restore the string terminator */
-			len = exp_replace(trash, cur_ptr, exp->replace, pmatch);
+			len = exp_replace(trash, cur_ptr, exp->replace, pmatch, keepbuf, keeppmatch);
 			delta = buffer_replace2(req, cur_ptr, cur_end, trash, len);
 			/* FIXME: if the user adds a newline in the replacement, the
 			 * index will not be recalculated for now, and the new line
@@ -6646,8 +6658,14 @@ int apply_filter_to_resp_headers(struct session *t, struct buffer *rtr, struct h
 				last_hdr = 1;
 				break;
 
+			case ACT_KEEP:
+				memcpy(keepbuf,    cur_ptr, cur_end - cur_ptr);
+				memcpy(keeppmatch, pmatch,  sizeof(keeppmatch));
+				last_hdr = 1;
+				break;
+
 			case ACT_REPLACE:
-				len = exp_replace(trash, cur_ptr, exp->replace, pmatch);
+				len = exp_replace(trash, cur_ptr, exp->replace, pmatch, keepbuf, keeppmatch);
 				delta = buffer_replace2(rtr, cur_ptr, cur_end, trash, len);
 				/* FIXME: if the user adds a newline in the replacement, the
 				 * index will not be recalculated for now, and the new line
@@ -6735,9 +6753,15 @@ int apply_filter_to_sts_line(struct session *t, struct buffer *rtr, struct hdr_e
 			done = 1;
 			break;
 
+		case ACT_KEEP:
+			memcpy(keepbuf,    cur_ptr, cur_end - cur_ptr);
+			memcpy(keeppmatch, pmatch,  sizeof(keeppmatch));
+			done = 1;
+			break;
+
 		case ACT_REPLACE:
 			*cur_end = term; /* restore the string terminator */
-			len = exp_replace(trash, cur_ptr, exp->replace, pmatch);
+			len = exp_replace(trash, cur_ptr, exp->replace, pmatch, keepbuf, keeppmatch);
 			delta = buffer_replace2(rtr, cur_ptr, cur_end, trash, len);
 			/* FIXME: if the user adds a newline in the replacement, the
 			 * index will not be recalculated for now, and the new line

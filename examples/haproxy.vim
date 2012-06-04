@@ -52,6 +52,7 @@ syn keyword hapParam     quiet
 syn keyword hapParam     redispatch retries
 syn keyword hapParam     reqallow  reqdel  reqdeny  reqpass  reqtarpit  skipwhite nextgroup=hapRegexp
 syn keyword hapParam     reqiallow reqidel reqideny reqipass reqitarpit skipwhite nextgroup=hapRegexp
+syn keyword hapParam     reqkeep reqikeep rspkeep rspikeep skipwhite nextgroup=hapRegexp
 syn keyword hapParam     rspdel  rspdeny    skipwhite nextgroup=hapRegexp
 syn keyword hapParam     rspidel rspideny   skipwhite nextgroup=hapRegexp
 syn keyword hapParam     reqsetbe reqisetbe skipwhite nextgroup=hapRegexp2
@@ -108,7 +109,7 @@ syn region  hapSrvEOL    contained start=/\S/ end=/$/ contains=hapSrvKey
 syn region  hapRegexp    contained start=/\S/ end=/\(\s\|$\)/ skip=/\\ / nextgroup=hapRegRepl skipwhite
 syn region  hapRegRepl   contained start=/\S/ end=/$/ contains=hapComment,hapEscape,hapBackRef
 syn region  hapRegexp2   contained start=/\S/ end=/\(\s\|$\)/ skip=/\\ / nextgroup=hapSectLabel skipwhite
-syn match   hapBackref   contained /\\\d/
+syn match   hapBackref   contained /\\\d\|\\k\d/
 
 
 " Transparent is a Vim keyword, so we need a regexp to match it

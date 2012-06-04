@@ -406,6 +406,9 @@ void init(int argc, char **argv)
 	totalconn = actconn = maxfd = listeners = stopping = 0;
 	trash = malloc(trashlen);
 
+	keepbuf = malloc(keepbuflen);
+	memset(keeppmatch, 0xFF, sizeof(keeppmatch));
+
 #ifdef HAPROXY_MEMMAX
 	global.rlimit_memmax = HAPROXY_MEMMAX;
 #endif

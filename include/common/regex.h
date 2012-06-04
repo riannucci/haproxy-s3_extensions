@@ -39,6 +39,7 @@
 #define ACT_PASS	4	/* pass this header without allowing or denying the request */
 #define ACT_TARPIT	5	/* tarpit the connection matching this request */
 #define ACT_SETBE	6	/* switch the backend */
+#define ACT_KEEP	7	/* match regex and store matches in keepbuf */
 
 struct hdr_exp {
     struct hdr_exp *next;
@@ -50,7 +51,11 @@ struct hdr_exp {
 
 extern regmatch_t pmatch[MAX_MATCH];
 
-int exp_replace(char *dst, char *src, const char *str,	const regmatch_t *matches);
+extern char *keepbuf;
+extern int  keepbuflen;
+extern regmatch_t keeppmatch[MAX_MATCH];
+
+int exp_replace(char *dst, char *src, const char *str,	const regmatch_t *matches, char *alt_src, const regmatch_t *alt_matches);
 const char *check_replace_string(const char *str);
 const char *chain_regex(struct hdr_exp **head, const regex_t *preg,
 			int action, const char *replace, void *cond);
