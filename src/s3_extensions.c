@@ -93,7 +93,8 @@ int s3_add_resign(const char *file, int line, struct proxy *px, const char *buck
   px->s3_auth_header_len    = strlen(px->s3_auth_header);
   px->s3_auth_header_colon  = strrchr(px->s3_auth_header, ':')+1 - px->s3_auth_header;
 
-  px->s3_key    = strdup(key);
+  px->s3_key     = strdup(key);
+  px->s3_key_len = strlen(px->s3_key);
   return 0;
 }
 
@@ -121,16 +122,17 @@ void for_each_header(struct http_txn *txn, void *data, void (*func)(void *data, 
   }
 }
 
-void optionally_add_header(HMAC_CTX *ctx, struct http_txn *txn, const char* header_name) {
+#define ADD_HEADER(ctx, txn, name) optionally_add_header(ctx, txn, name, sizeof(name))
+void optionally_add_header(HMAC_CTX *ctx, struct http_txn *txn, const char* header_name, int header_len) {
   struct hdr_ctx hdr_ctx = {.idx = 0};
-  int ret = http_find_header2(header_name, strlen(header_name), txn->req.sol, &txn->hdr_idx, &hdr_ctx);
+  int ret = http_find_header2(header_name, header_len, txn->req.sol, &txn->hdr_idx, &hdr_ctx);
   if(ret) {
     HMAC_Update(ctx, (unsigned char*)hdr_ctx.line+hdr_ctx.val, hdr_ctx.vlen);
   }
   HMAC_Update(ctx, (unsigned const char*)"\n", 1);
 }
 
-void make_aws_signature(char *retval, const char *key, struct http_txn *txn, struct proxy* px) {
+void make_aws_signature(char *retval, const char *key, int key_len, struct http_txn *txn) {
   struct http_msg *msg = &txn->req;
 
   static int loaded_engines = 0;
@@ -143,14 +145,14 @@ void make_aws_signature(char *retval, const char *key, struct http_txn *txn, str
 
   HMAC_CTX ctx;
   HMAC_CTX_init(&ctx);
-  HMAC_Init_ex(&ctx, key, strlen(key), EVP_sha1(), NULL);
+  HMAC_Init_ex(&ctx, key, key_len, EVP_sha1(), NULL);
 
   HMAC_Update(&ctx, (unsigned char*)msg->sol + msg->som, msg->sl.rq.m_l);
   HMAC_Update(&ctx, (unsigned const char*)"\n", 1);
 
-  optionally_add_header(&ctx, txn, "Content-MD5");
-  optionally_add_header(&ctx, txn, "Content-Type");
-  optionally_add_header(&ctx, txn, "Date");
+  ADD_HEADER(&ctx, txn, "Content-MD5");
+  ADD_HEADER(&ctx, txn, "Content-Type");
+  ADD_HEADER(&ctx, txn, "Date");
 
   void *header_sorter = HeaderSorter_new("x-amz-");
   for_each_header(txn, header_sorter, &HeaderSorter_add);
@@ -158,7 +160,7 @@ void make_aws_signature(char *retval, const char *key, struct http_txn *txn, str
   HeaderSorter_delete(header_sorter);
   header_sorter = NULL;
 
-  CanonicalizeResource(&ctx, txn->req.sol+txn->req.sl.rq.u, txn->req.sl.rq.u_l);
+  CanonicalizeResource(&ctx, msg->sol+msg->sl.rq.u, msg->sl.rq.u_l);
 
   unsigned int sig_len = sizeof(raw_sig);
   HMAC_Final(&ctx, raw_sig, &sig_len);
@@ -191,7 +193,7 @@ int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
     regcomp((regex_t*)exp->preg, "^Authorization:.*$", REG_EXTENDED | REG_ICASE);
   }
 
-  if (!px->s3_auth_header || !px->s3_key) {
+  if(!px->s3_auth_header || !px->s3_key) {
     printf("In s3_resign but have null config fields?");
     return 0;
   }
@@ -205,7 +207,10 @@ int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
     return 0;
   }
 
-  make_aws_signature((char*)exp->replace + px->s3_auth_header_colon, px->s3_key, txn, px);
+  // Using exp->replace is only OK because haproxy is single-threaded, so the buffer 
+  // will only serve 1 request at a time.
+  make_aws_signature((char*)exp->replace + px->s3_auth_header_colon,
+    px->s3_key, px->s3_key_len, txn);
 
   apply_filter_to_req_headers(s, req, exp);
 

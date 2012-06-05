@@ -323,6 +323,7 @@ struct proxy {
 	int  s3_auth_header_len;
 	int  s3_auth_header_colon;
 	char *s3_key;
+	int  s3_key_len;
 };
 
 struct switching_rule {
