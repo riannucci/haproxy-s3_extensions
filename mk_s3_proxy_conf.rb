@@ -71,10 +71,13 @@ backend s3-rewrite
   # set the bucket name in the URI to be the master
   reqrep   ^([^\ :]*\ /)[^/]*(/.*)      \1<%= master %>\2
 
-  # For now, just remove the Authorization header. Since our app theoretically only does
-  # unauthenticated GET operations, we can just nuke the sucker and pass it along.
-  #   s3_resign <%= master %> <%= master_id  %> <%= master_key %>
-  reqidel ^Authorization:.*
+  # Will fix Authorization header iff one exists.
+  s3_resign <%= master %> <%= master_id  %> <%= master_key %>
+
+  # An alternative to resigning is to just remove the Authorization header. Since
+  # our app theoretically only does unauthenticated GET operations, we can just nuke
+  # the sucker and pass it along.
+  #reqidel ^Authorization:.*
 
   server redirected <%= ROOT %>
 

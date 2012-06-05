@@ -3117,11 +3117,11 @@ int http_process_req_common(struct session *s, struct buffer *req, int an_bit, s
 	}
 
 	/* try headers filters */
-	if (px->req_exp != NULL || px->s3_bucket != NULL) {
+	if (px->req_exp != NULL || px->s3_auth_header != NULL) {
 		if (px->req_exp != NULL && apply_filters_to_request(s, req, px) < 0)
 			goto return_bad_req;
 
-		if (px->s3_bucket != NULL && s3_resign(s, req, px) < 0)
+		if (px->s3_auth_header != NULL && s3_resign(s, req, px) < 0)
 			goto return_bad_req;
 
 		/* has the request been denied ? */

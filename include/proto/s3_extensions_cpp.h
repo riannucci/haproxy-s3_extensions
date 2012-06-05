@@ -38,7 +38,7 @@ void  HeaderSorter_add(void *obj, char * s, size_t len);
 void  HeaderSorter_update(void *obj, HMAC_CTX *ctx);
 void  HeaderSorter_delete(void *obj);
 
-void CanonicalizeResource(HMAC_CTX *ctx, char *bucket, char *uri_begin, size_t uri_len);
+void CanonicalizeResource(HMAC_CTX *ctx, char *uri_begin, size_t uri_len);
 
 #ifdef __cplusplus
 }

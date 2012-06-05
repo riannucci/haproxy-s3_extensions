@@ -319,9 +319,9 @@ struct proxy {
 		struct eb_root used_server_id;	/* list of server IDs in use */
 	} conf;					/* config information */
 
-	char *s3_bucket;
 	char *s3_auth_header;
 	int  s3_auth_header_len;
+	int  s3_auth_header_colon;
 	char *s3_key;
 };
 

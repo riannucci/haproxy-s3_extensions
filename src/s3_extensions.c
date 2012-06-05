@@ -81,18 +81,17 @@ int s3_mark_redirected(struct acl_test *test, struct acl_pattern * ignored) {
   return ACL_PAT_PASS;
 }
 
+// Includes +1 for null byte
+#define SIG_SIZE 28
+
 int s3_add_resign(const char *file, int line, struct proxy *px, const char *bucket, const char *id, const char *key)
 {
   // TODO: Add bucket/key/id error checking
-  px->s3_bucket = strdup(bucket);
-
-  const char *new_auth_header_fmt = "Authorization: AWS %s:%%s\r\n";
-  char *new_auth_header = malloc(sizeof(char) * (strlen(id) + strlen(new_auth_header_fmt)));
-    sprintf(new_auth_header, new_auth_header_fmt, id);
-    px->s3_auth_header      = strdup(new_auth_header);
-    // length(BASE64(HMAC-SHA1(stuff))) == 28
-    px->s3_auth_header_len  = strlen(px->s3_auth_header)+28;
-  free(new_auth_header);
+  const char *new_auth_header_fmt = "Authorization: AWS %s:%*s";
+  px->s3_auth_header = calloc(strlen(id) + strlen(new_auth_header_fmt) + SIG_SIZE + 1, sizeof(char));
+  sprintf(px->s3_auth_header, new_auth_header_fmt, id, SIG_SIZE, "");
+  px->s3_auth_header_len    = strlen(px->s3_auth_header);
+  px->s3_auth_header_colon  = strrchr(px->s3_auth_header, ':')+1 - px->s3_auth_header;
 
   px->s3_key    = strdup(key);
   return 0;
@@ -118,7 +117,7 @@ void for_each_header(struct http_txn *txn, void *data, void (*func)(void *data, 
     cur_end  = cur_ptr + cur_hdr->len;
     cur_next = cur_end + cur_hdr->cr + 1;
 
-    (func)(data, cur_ptr, cur_end-cur_ptr);
+    (*func)(data, cur_ptr, cur_end-cur_ptr);
   }
 }
 
@@ -131,16 +130,16 @@ void optionally_add_header(HMAC_CTX *ctx, struct http_txn *txn, const char* head
   HMAC_Update(ctx, (unsigned const char*)"\n", 1);
 }
 
-char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px) {
+void make_aws_signature(char *retval, const char *key, struct http_txn *txn, struct proxy* px) {
   struct http_msg *msg = &txn->req;
 
   static int loaded_engines = 0;
   if(!loaded_engines) {
     ENGINE_load_builtin_engines();
     ENGINE_register_all_complete();
+    loaded_engines = 1;
   }
-  unsigned int raw_sig_len = 28;
-  unsigned char *raw_sig = malloc(sizeof(char) * raw_sig_len);
+  static unsigned char raw_sig[SIG_SIZE];
 
   HMAC_CTX ctx;
   HMAC_CTX_init(&ctx);
@@ -159,9 +158,10 @@ char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px
   HeaderSorter_delete(header_sorter);
   header_sorter = NULL;
 
-  CanonicalizeResource(&ctx, px->s3_bucket, txn->req.sol+txn->req.sl.rq.u, txn->req.sl.rq.u_l);
+  CanonicalizeResource(&ctx, txn->req.sol+txn->req.sl.rq.u, txn->req.sl.rq.u_l);
 
-  HMAC_Final(&ctx, raw_sig, &raw_sig_len);
+  unsigned int sig_len = sizeof(raw_sig);
+  HMAC_Final(&ctx, raw_sig, &sig_len);
   HMAC_CTX_cleanup(&ctx);
 
   BIO *mem_output_stream, *b64_filter;
@@ -170,23 +170,28 @@ char *make_aws_signature(const char *key, struct http_txn *txn, struct proxy* px
   b64_filter = BIO_new(BIO_f_base64());
   mem_output_stream = BIO_new(BIO_s_mem());
   b64_filter = BIO_push(b64_filter, mem_output_stream);
-  BIO_write(b64_filter, raw_sig, raw_sig_len);
+  BIO_write(b64_filter, raw_sig, sig_len);
   (void) BIO_flush(b64_filter);
   BIO_get_mem_ptr(b64_filter, &output_buffer);
 
-  char *retval = malloc(sizeof(char) + output_buffer->length);
   memcpy(retval, output_buffer->data, output_buffer->length-1);
-  retval[output_buffer->length-1] = 0;
 
   BIO_free_all(b64_filter);
-
-  return retval;
 }
 
 int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
   // TODO: Enable support for query string signatures?
 
-  if (!px->s3_bucket || !px->s3_auth_header || !px->s3_key) {
+  static struct hdr_exp *exp = NULL;
+  if(!exp) {
+    exp = calloc(1, sizeof(struct hdr_exp));
+    exp->preg    = calloc(1, sizeof(regex_t));
+    exp->replace = strdup(px->s3_auth_header);
+    exp->action  = ACT_REPLACE;
+    regcomp((regex_t*)exp->preg, "^Authorization:.*$", REG_EXTENDED | REG_ICASE);
+  }
+
+  if (!px->s3_auth_header || !px->s3_key) {
     printf("In s3_resign but have null config fields?");
     return 0;
   }
@@ -200,21 +205,9 @@ int s3_resign(struct session *s, struct buffer *req, struct proxy *px) {
     return 0;
   }
 
-  struct hdr_exp exp;
-  memset(&exp, sizeof(exp), 0);
-  exp.preg    = calloc(1, sizeof(regex_t));
-  exp.replace = malloc(sizeof(char) * px->s3_auth_header_len);;
-  exp.action  = ACT_REPLACE;
-  regcomp((regex_t*)exp.preg, "^Authorization:.*$", REG_EXTENDED | REG_ICASE);
+  make_aws_signature((char*)exp->replace + px->s3_auth_header_colon, px->s3_key, txn, px);
 
-  char *signature = make_aws_signature(px->s3_key, txn, px);
-  sprintf((char*)exp.replace, px->s3_auth_header, signature);
-  free(signature);
-
-  apply_filter_to_req_headers(s, req, &exp);
-
-  free((void*)exp.preg);
-  free((void*)exp.replace);
+  apply_filter_to_req_headers(s, req, exp);
 
   return 0;
 }
