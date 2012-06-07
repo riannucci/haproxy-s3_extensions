@@ -3,8 +3,36 @@
                          ----------------------
                               version 1.4
                              willy tarreau
+                     robbie iannucci (s3 additions)
                                2010/09/16
 
+
+0) S3 Proxy extensions
+----------------------
+
+Added the following ACLs:
+  * s3_already_redirected <junk string>
+    * This checks a redis set to see if the requested object has been
+      marked as 'redirected' on the bucket for this request.
+  * s3_mark_redirected <junk string>
+    * Causes the requested object to be marked as redirected for this
+      request's bucket.
+
+Added the following Regex operations:
+  * {req,rsp}{i,}keep
+    * Match a regex against the {request,response}, with our without case
+      insensitivity, and store any captured groups in a 'keep' buffer. Regex
+      terminates on the first match.
+    * The 'keep' buffer will persist until another *keep command is run
+    * Groups in the 'keep' buffer may be used by specifying the special escape
+      '\kN' in a *rep command.
+    * The alt matches are stored in a global buffer, but that's OK since
+      HAProxy's regex engine can only address one transaction at a time.
+
+Added the following directive:
+  * s3_resign <aws_id> <aws_key>
+    * Resigns the current request with the given credientials, only if an
+      Authorization header is already present.
 
 1) How to build it
 ------------------
