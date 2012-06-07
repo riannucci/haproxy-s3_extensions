@@ -72,7 +72,7 @@ backend s3-rewrite
   reqrep   ^([^\ :]*\ /)[^/]*(/.*)      \1<%= master %>\2
 
   # Will fix Authorization header iff one exists.
-  s3_resign <%= master %> <%= master_id  %> <%= master_key %>
+  s3_resign <%= master_id  %> <%= master_key %>
 
   # An alternative to resigning is to just remove the Authorization header. Since
   # our app theoretically only does unauthenticated GET operations, we can just nuke

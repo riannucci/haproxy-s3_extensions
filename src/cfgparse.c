@@ -4421,14 +4421,14 @@ stats_error_parsing:
 		warnif_misplaced_reqadd(curproxy, file, linenum, args[0]);
 	}
 	else if (!strcmp(args[0], "s3_resign")) {  /* resign request with provided id & key */
-		if (*(args[3]) == 0) {
-			Alert("parsing [%s:%d] : '%s' expects <bucket>, <key> and <id> as arguments.\n",
+		if (*(args[2]) == 0) {
+			Alert("parsing [%s:%d] : '%s' expects <id> and <key> as arguments.\n",
 			      file, linenum, args[0]);
 			err_code |= ERR_ALERT | ERR_FATAL;
 			goto out;
 		}
 
-		err_code |= s3_add_resign(file, linenum, curproxy, args[1], args[2], args[3]);
+		err_code |= s3_add_resign(file, linenum, curproxy, args[1], args[2]);
 
 		if (err_code & ERR_FATAL)
 			goto out;

@@ -18,13 +18,13 @@ int s3_already_redirected(struct acl_test *test, struct acl_pattern *pattern);
 int s3_mark_redirected(struct acl_test *test, struct acl_pattern *pattern);
 
 /**
- * Saves the target bucket/key/id on the current proxy, to enable 
+ * Saves the target key/id on the current proxy, to enable
  * s3_resign to work.
  */
 int s3_add_resign(const char *file, int line, struct proxy *px,
-		  const char *bucket, const char *id, const char *key);
+		  const char *id, const char *key);
 
 /**
- * Actually change the bucket for a request and resign headers.
+ * Resign the request.
  */
 int s3_resign(struct session *s, struct buffer *req, struct proxy *px);

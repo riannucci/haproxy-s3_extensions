@@ -84,7 +84,7 @@ int s3_mark_redirected(struct acl_test *test, struct acl_pattern * ignored) {
 // Includes +1 for null byte
 #define SIG_SIZE 28
 
-int s3_add_resign(const char *file, int line, struct proxy *px, const char *bucket, const char *id, const char *key)
+int s3_add_resign(const char *file, int line, struct proxy *px, const char *id, const char *key)
 {
   // TODO: Add bucket/key/id error checking
   const char *new_auth_header_fmt = "Authorization: AWS %s:%*s";
