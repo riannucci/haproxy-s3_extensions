@@ -87,6 +87,7 @@ void init_proto_http();
 int http_find_header2(const char *name, int len,
 		      char *sol, struct hdr_idx *idx,
 		      struct hdr_ctx *ctx);
+char * http_get_path(struct http_txn *txn);
 void http_sess_log(struct session *s);
 void perform_http_redirect(struct session *s, struct stream_interface *si);
 void http_return_srv_error(struct session *s, struct stream_interface *si);

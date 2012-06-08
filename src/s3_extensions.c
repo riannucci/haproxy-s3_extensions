@@ -122,12 +122,21 @@ void for_each_header(struct http_txn *txn, void *data, void (*func)(void *data, 
   }
 }
 
-#define ADD_HEADER(ctx, txn, name) optionally_add_header(ctx, txn, name, sizeof(name))
+#define ADD_HEADER(ctx, txn, name) optionally_add_header(ctx, txn, name, sizeof(name)-1)
 void optionally_add_header(HMAC_CTX *ctx, struct http_txn *txn, const char* header_name, int header_len) {
   struct hdr_ctx hdr_ctx = {.idx = 0};
-  int ret = http_find_header2(header_name, header_len, txn->req.sol, &txn->hdr_idx, &hdr_ctx);
-  if(ret) {
-    HMAC_Update(ctx, (unsigned char*)hdr_ctx.line+hdr_ctx.val, hdr_ctx.vlen);
+  char *begin = NULL;
+  char *end   = NULL;
+  if(http_find_header2(header_name, header_len, txn->req.sol, &txn->hdr_idx, &hdr_ctx)) {
+    begin = hdr_ctx.line + hdr_ctx.val;
+    end   = begin + hdr_ctx.vlen;
+  }
+  // For Date, haproxy does a silly thing where it considers the ',' to be a field separator
+  while(http_find_header2(header_name, header_len, txn->req.sol, &txn->hdr_idx, &hdr_ctx)) {
+    end = hdr_ctx.line + hdr_ctx.val + hdr_ctx.vlen;
+  }
+  if(begin) {
+    HMAC_Update(ctx, (unsigned char*)begin, end - begin);
   }
   HMAC_Update(ctx, (unsigned const char*)"\n", 1);
 }
@@ -160,7 +169,9 @@ void make_aws_signature(char *retval, const char *key, int key_len, struct http_
   HeaderSorter_delete(header_sorter);
   header_sorter = NULL;
 
-  CanonicalizeResource(&ctx, msg->sol+msg->sl.rq.u, msg->sl.rq.u_l);
+  char *rel_uri = http_get_path(txn);
+  char *uri_end = msg->sol + msg->sl.rq.u + txn->req.sl.rq.u_l;
+  CanonicalizeResource(&ctx, rel_uri, uri_end - rel_uri);
 
   unsigned int sig_len = sizeof(raw_sig);
   HMAC_Final(&ctx, raw_sig, &sig_len);
