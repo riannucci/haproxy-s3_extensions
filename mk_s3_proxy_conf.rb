@@ -53,6 +53,9 @@ frontend incoming
   # No operations on Service/Bucket
   block if     { path / }
 
+  # Replace absolute URI with relative
+  reqirep   ^([^\ :]*\ )\w+://[^/]*(/.*)   \1\2
+
   # Canonicalize bucket into URI if it's not there already
   acl canonicalized  hdr(Host) <%= ROOT %>
   reqikeep  ^Host:\s+(.*).<%= ROOT %>		unless canonicalized
