@@ -7,9 +7,9 @@ require 'redis'
 require 'redis/objects'
 require 'redis/set'
 
-Redis.current = Redis.new(:host => '127.0.0.1', :port => 6379)
-
 CONFIG = YAML.load_file("#{File.dirname(__FILE__)}/config.yml")
+
+Redis.current = Redis.new(:host => '127.0.0.1', :port => 6379)
 
 def test_filename
   example.description.titlecase.delete(' ')
@@ -34,8 +34,12 @@ def bucket(which = :test, parms = {})
 end
 
 def test_object(which = :test, obj = test_filename, parms = {})
-  parms = {:which => which, :obj => obj}.merge(parms)
+  parms = {:obj => obj}.merge(which.is_a?(Hash) ? which : {:which => which}).merge(parms)
   bucket(parms).objects[parms[:obj]]
+end
+
+def redis_set(which = :test)
+  Redis::Set.new(bucket_name(:which => which))
 end
 
 # Initialize the buckets
@@ -62,3 +66,6 @@ if CONFIG["start_haproxy"]
   end
   at_exit { Process.kill(:SIGINT, child) }
 end
+
+# Initialize Redis
+Redis.current.del bucket_name

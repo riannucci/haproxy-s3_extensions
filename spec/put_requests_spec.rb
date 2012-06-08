@@ -16,7 +16,7 @@ describe "PUT operations" do
     test_data = "This is test data: #{test_filename} #{Time.new}"
     expect { test_object.write(test_data) }.not_to raise_error
 
-    Redis::Set.new(bucket.name).should include(test_filename)
+    redis_set.should include(test_filename)
 
     test_object(:master).should_not exist
     test_object.should exist
