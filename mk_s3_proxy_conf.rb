@@ -40,7 +40,7 @@ defaults
   srvtimeout    60000
 
 frontend incoming
-  bind *:80
+  bind *:8888
 
   default_backend s3-rewrite
 
@@ -79,7 +79,7 @@ backend s3-rewrite
   # the sucker and pass it along.
   #reqidel ^Authorization:.*
 
-  server redirected <%= ROOT %>
+  server redirected <%= ROOT %>:80
 
   # Need to fix the "Name" or "Bucket" in the response xml? This would involve rewriting
   # the payload, which is not supported by haproxy (currently).

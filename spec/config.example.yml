@@ -1,0 +1,12 @@
+master_creds: # USED TO DELETE DATA IN real_bucket FOR TEST SETUP
+  :access_key_id: #<key ID>
+  :secret_access_key: #<key>
+test_creds:
+  :access_key_id: #<key ID>
+  :secret_access_key: #<key>
+obj_prefix: #<optional prefix to use for testing files in bucket>
+test_bucket: #<test bucket>
+real_bucket: #<'real' bucket. NOTE: data will be deleted under obj_prefix!!!>
+proxy: http://localhost:8888
+start_haproxy: true
+debug: false

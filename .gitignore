@@ -16,3 +16,4 @@ make-*
 dlmalloc.c
 00*.patch
 tags
+spec/config.yml
