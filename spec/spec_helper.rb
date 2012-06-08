@@ -3,6 +3,11 @@ require 'active_support/core_ext'
 require 'aws-sdk'
 require 'ruby-debug'
 require 'tempfile'
+require 'redis'
+require 'redis/objects'
+require 'redis/set'
+
+Redis.current = Redis.new(:host => '127.0.0.1', :port => 6379)
 
 CONFIG = YAML.load_file("#{File.dirname(__FILE__)}/config.yml")
 
@@ -23,13 +28,19 @@ def bucket_name(parms = {})
   CONFIG["#{parms[:which]}_bucket"]
 end
 
-def bucket(parms = {})
+def bucket(which = :test, parms = {})
+  parms = (which.is_a?(Hash) ? which : {:which => which}).merge(parms)
   s3_connection(parms).buckets[bucket_name(parms)]
 end
 
+def test_object(which = :test, obj = test_filename, parms = {})
+  parms = {:which => which, :obj => obj}.merge(parms)
+  bucket(parms).objects[parms[:obj]]
+end
+
 # Initialize the buckets
-[:test, :real].each do |which|
-  bucket(:which => which, :mode => :direct, :creds => :master).tap do |b|
+[:test, :master].each do |which|
+  bucket(which, :mode => :direct, :creds => :master).tap do |b|
     b.objects.with_prefix(CONFIG["obj_prefix"]).delete_all if b.exists?
   end
   s3_connection(:mode => :direct, :creds => :master).buckets.create(bucket_name(:which => which))
@@ -40,7 +51,7 @@ if CONFIG["start_haproxy"]
   cfg_file = Tempfile.new('haproxy_test')
   system(
     "#{File.dirname(__FILE__)}/../mk_s3_proxy_conf.rb",
-    bucket_name(:which => :real),
+    bucket_name(:which => :master),
     CONFIG["master_creds"][:access_key_id],
     CONFIG["master_creds"][:secret_access_key],
     :out => cfg_file.path
@@ -51,5 +62,3 @@ if CONFIG["start_haproxy"]
   end
   at_exit { Process.kill(:SIGINT, child) }
 end
-
-# TODO: Set up redis

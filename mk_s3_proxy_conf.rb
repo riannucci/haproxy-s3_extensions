@@ -63,7 +63,7 @@ frontend incoming
 
 backend s3-passthrough
   block unless { s3_mark_redirected junk } # will never actually block but we need to execute ACL
-  server pass_through <%= ROOT %>
+  server pass_through <%= ROOT %>:80
 
 backend s3-rewrite
   block unless METH_GET
