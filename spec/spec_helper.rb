@@ -1,17 +1,17 @@
 require 'rubygems'
+begin_time = Time.now
+
 require 'active_support/core_ext'
 require 'aws-sdk'
-require 'ruby-debug'
-require 'tempfile'
 require 'redis'
 require 'redis/objects'
 require 'redis/set'
+require 'ruby-debug'
+require 'socket'
+require 'tempfile'
+require 'timeout'
 
-CONFIG = YAML.load_file("#{File.dirname(__FILE__)}/config.yml")
-CONFIG['debug'] = (ENV['DEBUG']=='1') || CONFIG['debug']
-
-Redis.current = Redis.new(:host => '127.0.0.1', :port => 6379)
-
+##### Definitions of helper methods
 def parallel_iter(*arrays)
   arrays.map(&:size).max.times do
     yield arrays.map(&:shift)
@@ -62,14 +62,12 @@ def redis_set(which = :test)
   Redis::Set.new(bucket_name(which))
 end
 
-# Initialize the buckets
-[:test, :master].each do |which|
-  bucket(which, mode: :direct, creds: :master).tap do |b|
-    b.objects.with_prefix(CONFIG["obj_prefix"]).delete_all if b.exists?
-  end
-  s3_connection(:mode => :direct, :creds => :master).buckets.create(bucket_name(which))
-end
+##### Initialization of resources
+# Parse config
+CONFIG = YAML.load_file("#{File.dirname(__FILE__)}/config.yml")
+CONFIG['debug'] = (ENV['DEBUG']=='1') || CONFIG['debug']
 
+# Generate haproxy config and start
 if CONFIG["start_haproxy"]
   # Config and Start up haproxy
   cfg_file = Tempfile.new('haproxy_test')
@@ -87,5 +85,26 @@ if CONFIG["start_haproxy"]
   at_exit { Process.kill(:SIGINT, child) }
 end
 
+# Connect redis
+Redis.current = Redis.new(:host => '127.0.0.1', :port => 6379)
+
+# Initialize the buckets
+[:test, :master].each do |which|
+  bucket(which, mode: :direct, creds: :master).tap do |b|
+    b.objects.with_prefix(CONFIG["obj_prefix"]).delete_all if b.exists?
+  end
+  s3_connection(:mode => :direct, :creds => :master).buckets.create(bucket_name(which))
+end
+
 # Initialize Redis
 Redis.current.del bucket_name
+
+# Make sure that haproxy is ready to rock
+if CONFIG["start_haproxy"]
+  Timeout.timeout(5) do
+    sleep 0.1
+    TCPSocket.new('localhost', 8888).close rescue retry
+  end
+end
+
+puts "Initialization took #{Time.now - begin_time} seconds"
