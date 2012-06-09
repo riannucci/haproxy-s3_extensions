@@ -1,5 +1,4 @@
 require 'spec_helper'
-require 'excon'
 
 describe "PUT operations" do
   it "should retain data after I PUT it" do
