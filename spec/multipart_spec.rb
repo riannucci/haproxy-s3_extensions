@@ -2,12 +2,15 @@ require 'spec_helper'
 
 describe "Multipart operations" do
   it "should allow multipart uploads" do
-    test_data1 = "Testing 123: #{test_filename}"
+    # Minimum part size is 5MB, otherwise we'll get 400's when the multipart
+    # uploader tries to POST the final assembly manifest
+    test_data1 = "Testing 123: #{test_filename}"*150_000
     test_data2 = test_data1.reverse
     expect do
       test_object.multipart_upload do |uploader|
+        redis_set.should include(test_filename)
         uploader.add_part(test_data1)
-	uploader.should_not be_aborted
+        uploader.should_not be_aborted
         uploader.add_part(test_data2)
       end
     end.not_to raise_error

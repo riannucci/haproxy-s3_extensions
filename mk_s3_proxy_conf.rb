@@ -47,8 +47,10 @@ frontend incoming
   # Only proxy s3 stuff
   block unless { hdr_end(Host) <%= ROOT %> }
 
-  # No operations besides HEAD, GET, DELETE, PUT
-  block unless METH_GET or { method DELETE } or { method PUT }
+  # No operations besides HEAD, GET, DELETE, PUT, and multipart
+  acl multipart_start  url_end   ?uploads
+  acl multipart_end    url_reg   \?uploadId=[^&]*$
+  block unless METH_GET or { method DELETE } or { method PUT } or METH_POST multipart_start or METH_POST multipart_end
 
   # No operations on Service/Bucket
   block if     { path / }
