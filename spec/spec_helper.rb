@@ -8,6 +8,7 @@ require 'redis/objects'
 require 'redis/set'
 
 CONFIG = YAML.load_file("#{File.dirname(__FILE__)}/config.yml")
+CONFIG['debug'] = (ENV['DEBUG']=='1') || CONFIG['debug']
 
 Redis.current = Redis.new(:host => '127.0.0.1', :port => 6379)
 
