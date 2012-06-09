@@ -6,7 +6,7 @@ describe "Overwrite operations" do
     test_object.should_not exist
 
     test_data = "This is a test file!"
-    expect { test_object(:master, :mode => :direct, :creds => :master).write(test_data) }.not_to raise_error
+    expect { test_object(:master).write(test_data) }.not_to raise_error
     test_object.read.should == test_data
 
     test_data2 = test_data+test_filename

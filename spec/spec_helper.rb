@@ -33,8 +33,9 @@ def test_filename
   example.description.titlecase.delete(' ')
 end
 
-def s3_connection(*options)
-  parms = named_positional(options, mode: :proxy, creds: :test)
+def s3_connection(parms={})
+  parms[:creds] ||= parms[:which] || :test
+  parms[:mode]  ||= parms[:which] == :master ? :direct : :proxy
   config = {provider: :aws, use_ssl: false}.merge(CONFIG["#{parms[:creds]}_creds"])
   config = config.merge(proxy_uri: CONFIG['proxy']) if parms[:mode] == :proxy
 
@@ -65,7 +66,7 @@ end
   bucket(which, mode: :direct, creds: :master).tap do |b|
     b.objects.with_prefix(CONFIG["obj_prefix"]).delete_all if b.exists?
   end
-  s3_connection(:direct, :master).buckets.create(bucket_name(which))
+  s3_connection(:mode => :direct, :creds => :master).buckets.create(bucket_name(which))
 end
 
 if CONFIG["start_haproxy"]
