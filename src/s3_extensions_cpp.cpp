@@ -72,6 +72,10 @@ void CanonicalizeResource(HMAC_CTX *ctx, char *uri_begin, size_t uri_len) {
   // Bucket is always at the beginning of URI (has been fixed by regex at this point)
   HMAC_Update(ctx, (unsigned char*)uri_begin, uri_len - query_len);
 
+  // Skip the '?'
+  ++query_start;
+  --query_len;
+
   // Query params sorted by param name and interleaved with &, prepend with ?.
   if(query_len > 0) {
     typedef std::map<iterator_range<char*>, std::string > query_params_t;
