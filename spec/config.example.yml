@@ -10,3 +10,4 @@ master_bucket: #<'real' bucket. NOTE: data will be deleted under obj_prefix!!!>
 proxy: http://localhost:8888
 start_haproxy: true
 debug: false
+fast_tests_only: true

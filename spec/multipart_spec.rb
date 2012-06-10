@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe "Multipart operations" do
+describe "Multipart operations", :slow => true do
   it "should allow multipart uploads" do
     # Minimum part size is 5MB, otherwise we'll get 400's when the multipart
     # uploader tries to POST the final assembly manifest

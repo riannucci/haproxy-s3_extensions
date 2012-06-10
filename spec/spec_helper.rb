@@ -99,6 +99,12 @@ end
 # Initialize Redis
 Redis.current.del bucket_name
 
+if CONFIG["fast_tests_only"]
+  RSpec.configure do |c|
+    c.filter_run_excluding :slow => true
+  end
+end
+
 # Make sure that haproxy is ready to rock
 if CONFIG["start_haproxy"]
   Timeout.timeout(5) do
