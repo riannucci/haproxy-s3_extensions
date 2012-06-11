@@ -10,6 +10,7 @@ require 'ruby-debug'
 require 'socket'
 require 'tempfile'
 require 'timeout'
+require 'uri'
 
 ##### Definitions of helper methods
 def parallel_iter(*arrays)
@@ -30,8 +31,10 @@ def named_positional(options, defaults)
   defaults
 end
 
-def test_filename
-  example.description.titlecase.delete(' ')
+def test_filename(*options)
+  parms = named_positional(options, query: {})
+  qstring = parms[:query].map {|k,v| "#{k}=#{URI.escape(v)}"}.join("&")
+  example.description.titlecase.delete(' ')+(qstring.empty? ? "" : "?#{qstring}")
 end
 
 def s3_connection(parms={})
@@ -54,12 +57,26 @@ def bucket(*options)
 end
 
 def test_object(*options)
-  parms = named_positional(options, which: :test, obj: test_filename)
+  parms = named_positional(options, which: :test, obj: method(:test_filename))
+  parms[:obj] = parms[:obj].call(parms) if parms[:obj].is_a? Method
   bucket(parms).objects[parms[:obj]]
 end
 
 def redis_set(which = :test)
   Redis::Set.new(bucket_name(which))
+end
+
+# This would be a lot less horrible if ruby supported method
+# transplantation...
+def enable_monkeypatch(clazz, old_method_name, new_method_name)
+  old_method = clazz.instance_method(old_method_name)
+  new_method = clazz.instance_method(new_method_name)
+  begin
+    clazz.send(:define_method, old_method_name, new_method)
+    yield
+  ensure
+    clazz.send(:define_method, old_method_name, old_method)
+  end
 end
 
 ##### Initialization of resources
