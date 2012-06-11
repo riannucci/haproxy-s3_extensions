@@ -92,9 +92,10 @@ void CanonicalizeResource(HMAC_CTX *ctx, char *uri_begin, size_t uri_len) {
       std::string value;
       if(key != key_value) {
         iterator_range<char*> value_r(key.end()+1, key_value.end());
-        if(starts_with(value_r, "response-")) {
+        if(starts_with(key, "response-")) {
           char * value_decoded = strndup(value_r.begin(), value_r.size());
-          value.assign(value_decoded, url_decode(value_decoded));
+          url_decode(value_decoded);
+          value.assign(value_decoded);
           free(value_decoded);
         } else {
           value.assign(value_r.begin(), value_r.end());
