@@ -34,6 +34,32 @@ Added the following directive:
     * Resigns the current request with the given credientials, only if an
       Authorization header is already present.
 
+0.1) Setting up the S3 Proxy
+
+ 1. Clone repo and submodules
+ 2. Run run_debian_build.sh
+
+0.1.1 ) Running rspec tests
+
+ 1. Copy spec/config.example.yml to spec/config.yml
+ 2. Edit spec/config.yml
+ 3. Run `rspec spec/`
+ 4. To run slow tests `rspec -t slow spec/`
+
+0.1.2 ) Running the proxy
+
+ 1. Run (key should have read only access to the bucket. Bucket is your
+    'production' bucket)
+      mk_s3_proxy_conf.rb <bucket name> <aws id> <aws key>  > haproxy.conf
+   * Note: By default the config file will bind on 8888. If you want it to
+           bind on 80, you need to edit mk_s3_proxy_conf.rb before generating
+	   the config.
+ 2. Run ./haproxy -d -f haproxy.conf
+   * Note: You should (obviously) run this as an unprivileged user
+           If you decided to bind port 80, you'll need to add a "user" and "group"
+	   directive to haproxy.conf, and run haproxy as superuser. Or set cap
+	   bits. Or use authbind.
+
 1) How to build it
 ------------------
 
