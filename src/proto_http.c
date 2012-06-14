@@ -8326,6 +8326,20 @@ acl_fetch_http_auth(struct proxy *px, struct session *s, void *l7, int dir,
 	return 1;
 }
 
+static int
+acl_fetch_http_txn(struct proxy *px, struct session *s, void *l7, int dir,
+                   struct acl_expr *expr, struct acl_test *test)
+{
+	if (!s)
+		return 0;
+
+	test->ctx.p = &s->txn;
+
+	test->flags |= ACL_TEST_F_READ_ONLY | ACL_TEST_F_VOLATILE;
+
+	return 1;
+}
+
 /************************************************************************/
 /*             All supported keywords must be declared here.            */
 /************************************************************************/

@@ -76,6 +76,15 @@ backend s3-rewrite
   # set the bucket name in the URI to be the master
   reqrep   ^([^\ :]*\ /)[^/]*(/.*)      \1<%= master %>\2
 
+  # Remove signature in query string.
+  acl query_auth url_sub AWSAccessKeyId=
+  reqirep   ^([^\ :]*\ /.*)Expires=[^&\ ]*&?(\ ?.*)          \1\2  if query_auth
+  reqirep   ^([^\ :]*\ /.*)Signature=[^&\ ]*&?(\ ?.*)        \1\2  if query_auth
+  reqirep   ^([^\ :]*\ /.*)AWSAccessKeyId=[^&\ ]*&?(\ ?.*)   \1\2  if query_auth
+
+  # clean up hanging ?
+  reqirep   ^([^\ :]*\ /.*)\?(\ .*)   			     \1\2  if query_auth
+
   # Will fix Authorization header iff one exists.
   s3_resign <%= master_id  %> <%= master_key %>
 

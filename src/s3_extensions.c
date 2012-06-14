@@ -81,6 +81,18 @@ int s3_mark_redirected(struct acl_test *test, struct acl_pattern * ignored) {
   return ACL_PAT_PASS;
 }
 
+int s3_signature_good(struct acl_test *test, struct acl_pattern * ignored) {
+  const struct http_txn *txn = test->ctx.p;
+
+  // Get ID (path or header)
+  // Get Key(ID) - from redis
+  // Generate sig
+  // Compare!
+  //   Pass/Fail
+
+  return ACL_PAT_PASS;
+}
+
 // Includes +1 for null byte
 #define SIG_SIZE 28
 
